@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <ctime>
+#include <chrono>
+#include <fstream>
 
 bool check_data_symbols(std::string& data, const char* format) { // Checks that the string is not empty and doesn't contatin unwanted symblos
 	if (data.find_first_not_of(format) == std::string::npos && data.length() != 0)
@@ -67,9 +69,9 @@ void generate_data(T data, int& sample_size) { // Generates array of random numb
 }
 
 template <typename T>
-unsigned int simple_moving_average(T data[], int& sample_size, int& window_size, T average[]) { // Calculates simple moving average
+auto simple_moving_average(T data[], int& sample_size, int& window_size, T average[]) { // Calculates simple moving average
 
-	unsigned int start_time = clock(); 
+	auto begin = std::chrono::steady_clock::now();
 
 	int i;
 	average[0] = data[0] / window_size;
@@ -85,9 +87,10 @@ unsigned int simple_moving_average(T data[], int& sample_size, int& window_size,
 		average[i] = average[i - 1] + (data[i] - data[i - window_size]) / window_size;
 	}
 
-	unsigned int end_time = clock();
-	unsigned int work_time = end_time - start_time;
-	return work_time;
+	auto end = std::chrono::steady_clock::now();
+
+	auto elapsed_ms = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+	return elapsed_ms.count();
 
 }
 
@@ -100,13 +103,12 @@ void calculatings_and_analysis(T data[], int& sample_size, int& window_size, T a
 	std::cout << "Data has been generated. Starting SMA calculation..." << std::endl;
 
 	// Calculate average and performance
-	int work_time = simple_moving_average(data, sample_size, window_size, average);
-
+	auto work_time = simple_moving_average(data, sample_size, window_size, average);
+	std::cout << "SMA has been calculated." << std::endl;
 
 	// Here user chooses what he wants to see
 	while (true) {
-		std::cout << "SMA has been calculated." << std::endl
-			<< "What can you see/do:" << std::endl
+			std::cout << "What can you see/do:" << std::endl
 			<< "0. Exit" << std::endl
 			<< "1. Elapsed time" << std::endl
 			<< "2. Performance" << std::endl
@@ -124,11 +126,11 @@ void calculatings_and_analysis(T data[], int& sample_size, int& window_size, T a
 				return;
 			}
 			case 1: { // Elapsed time
-				std::cout << "Elapsed time is " << work_time << " sec" << std::endl;
+				std::cout << "Elapsed time is " << work_time << " microsec" << std::endl;
 				break;
 			}
 			case 2: { // Performance
-				std::cout << "Performance is " << sample_size/work_time << " counts/sec" << std::endl;
+				std::cout << "Performance is " << sample_size/work_time << " counts/microsec" << std::endl;
 				break;
 			}
 			case 3: { // Data elements
@@ -235,7 +237,7 @@ void auto_comparison() { // Performs calculatings as task requires (compare perf
 	// Initial parametrs:
 	// size of the sample 
 	// window sizes, that will be compared in term of perfomance
-	int sample_size = 1000000;
+	int sample_size = 10000000;
 	int windows_arr[] = { 4, 8, 16, 32, 64, 128 };
 
 	// Memory allocation for double and float data and average
@@ -243,6 +245,8 @@ void auto_comparison() { // Performs calculatings as task requires (compare perf
 	float* float_data = new float[sample_size];
 	double* double_average = new double[sample_size];
 	float* float_average = new float[sample_size];
+	double performance[2][6];
+	double work_time;
 
 	// Performing calculations with different sizes of window
 	for (int i = 0; i < 6; ++i) {
@@ -252,13 +256,26 @@ void auto_comparison() { // Performs calculatings as task requires (compare perf
 
 		// Generate data, calculate average and performance for "double" data type
 		generate_data(double_data, sample_size);
-		simple_moving_average(double_data, sample_size, window_size, double_average);
+		work_time = simple_moving_average(double_data, sample_size, window_size, double_average);
+		performance[0][i] = sample_size / work_time;
+		std::cout << "Calculatings for double array with " << windows_arr[i] << " window size is completed" << std::endl;
 
 		// Generate data, calculate average and performance for "float" data type
 		generate_data(float_data, sample_size);
-		simple_moving_average(float_data, sample_size, window_size, float_average);
+		work_time = simple_moving_average(float_data, sample_size, window_size, float_average);
+		performance[1][i] = sample_size / work_time;
+		std::cout << "Calculatings for float array with " << windows_arr[i] << " window size is completed" << std::endl;
 
 	}
+
+	// Output to csv file
+	std::ofstream out;
+	out.open("result.txt");
+	out << "window size \t double \t float" << std::endl;
+	for (int i = 0; i < 6; ++i) {
+		out << windows_arr[i] << '\t' << performance[0][i] << '\t' << performance[1][i] << std::endl;
+	}
+	out.close();
 
 	// Clear storage
 	delete[] double_data;
@@ -292,13 +309,14 @@ int what_is_my_task() { //Asks user what program should do
 
 int main() {
 	try {
+		int task = what_is_my_task();
 		// 2 - one example; 1 - auto comparison; 0 - exit
-		if (what_is_my_task() == 2) {
+		if (task == 2) {
 			// Manual work with one example. Use for manual testing. 
 			// You will be able to choose initial parameters, get elements from generated data and calculated SMA.
 			working_process_with_user();
 		}
-		else if (what_is_my_task() == 1) {
+		else if (task == 1) {
 			// Auto comparison. Program perform exactly what task requires
 			auto_comparison();
 		}
@@ -308,7 +326,6 @@ int main() {
 		std::cerr << err;
 		return 1;
 	}
-
 
 	return 0;
 }
