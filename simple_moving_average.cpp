@@ -34,6 +34,29 @@ void check_initital_information_correctness(std::string sample_size_str, std::st
 	return;
 }
 
+void check_start_and_end_indexes(int& sample_size, std::string& st, std::string& e, int& start, int& end) { // Checks if start and end indexes are correct
+	
+	// Check if the end index is correct
+	if (check_data_symbols(st, "0123456789"))
+		start = std::stoi(st);
+	else
+		throw "Wrong input: " + st + ". Expected positive integer!";
+
+	// Check if the end index is correct
+	if (check_data_symbols(e, "0123456789"))
+		end = std::stoi(e);
+	else
+		throw "Wrong input: " + e + ". Expected positive integer!";
+
+	// Check if start less than end 
+	if (start > end)
+		throw "Wrong input: " + st + ", " + e + ". Expected start to be less that end!";
+	
+	// Check if end less than sample size 
+	if (end > sample_size)
+		throw "Wrong input: " + e + ". Expected end to be less or equal sample size!";
+}
+
 template <typename T>
 void generate_data(T data, int& sample_size) { // Generates array of random numbers
 
@@ -44,10 +67,11 @@ void generate_data(T data, int& sample_size) { // Generates array of random numb
 }
 
 template <typename T>
-void simple_moving_average(T data[], int& sample_size, int& window_size, T average[]) { // Calculates simple moving average
-	int i;
+unsigned int simple_moving_average(T data[], int& sample_size, int& window_size, T average[]) { // Calculates simple moving average
 
-	// Initiate first element of the SMA
+	unsigned int start_time = clock(); 
+
+	int i;
 	average[0] = data[0] / window_size;
 
 	// Separated calculations for the first k = window_size elements
@@ -61,7 +85,9 @@ void simple_moving_average(T data[], int& sample_size, int& window_size, T avera
 		average[i] = average[i - 1] + (data[i] - data[i - window_size]) / window_size;
 	}
 
-	return;
+	unsigned int end_time = clock();
+	unsigned int work_time = end_time - start_time;
+	return work_time;
 
 }
 
@@ -74,19 +100,88 @@ void calculatings_and_analysis(T data[], int& sample_size, int& window_size, T a
 	std::cout << "Data has been generated. Starting SMA calculation..." << std::endl;
 
 	// Calculate average and performance
-	simple_moving_average(data, sample_size, window_size, average);
+	int work_time = simple_moving_average(data, sample_size, window_size, average);
 
 
+	// Here user chooses what he wants to see
+	while (true) {
+		std::cout << "SMA has been calculated." << std::endl
+			<< "What can you see/do:" << std::endl
+			<< "0. Exit" << std::endl
+			<< "1. Elapsed time" << std::endl
+			<< "2. Performance" << std::endl
+			<< "3. Data elements" << std::endl
+			<< "4. SMA elements" << std::endl
+			<< "Choose what do you want to see (0, 1, 2, 3 or 4): ";
+		std::string act;
+		std::cin >> act;
 
-	std::cout << "SMA has been calculated." << std::endl
-		<< "What can be showen:" << std::endl
-		<< "0. Elapsed time" << std::endl
-		<< "1. Performance" << std::endl
-		<< "2. Data elements" << std::endl
-		<< "3. SMA elements" << std::endl
-		<< "Choose what do you want to see (0, 1, 2 or 3): ";
-	std::string action;
-	std::cin >> action;
+		// Check if the input is correct and do what user wants
+		if (check_data_symbols(act, "01234") && act.length() == 1) {
+			int action = std::stoi(act);
+			switch (action) {
+			case 0: { // Exit
+				return;
+			}
+			case 1: { // Elapsed time
+				std::cout << "Elapsed time is " << work_time << " sec" << std::endl;
+				break;
+			}
+			case 2: { // Performance
+				std::cout << "Performance is " << sample_size/work_time << " counts/sec" << std::endl;
+				break;
+			}
+			case 3: { // Data elements
+				std::cout << "Print start and end indexes of the part of data array that you want to see." << std::endl << "Start: ";
+
+				// Start index
+				std::string st;
+				std::cin >> st;
+
+				// End index
+				std::cout << "End: ";
+				std::string e;
+				std::cin >> e;
+
+				// Check if the input is correct
+				int start, end;
+				check_start_and_end_indexes(sample_size, st, e, start, end);
+				std::cout << "[";
+				for (int i = start; i < end; ++i) {
+					std::cout << data[i] << " ";
+				}
+				std::cout << data[end] << "]" << std::endl;
+
+				break;
+			}
+			case 4: { // Average elements
+				std::cout << "Print start and end indexes of the part of SMA array that you want to see." << std::endl << "Start: ";
+
+				// Start index
+				std::string st;
+				std::cin >> st;
+
+				// End index
+				std::cout << "End: ";
+				std::string e;
+				std::cin >> e;
+
+				// Check if the input is correct
+				int start, end;
+				check_start_and_end_indexes(sample_size, st, e, start, end);
+				std::cout << "[";
+				for (int i = start; i < end; ++i) {
+					std::cout << average[i] << " ";
+				}
+				std::cout << average[end] << "]" << std::endl;
+				break;
+			}
+			}
+		}
+		else {
+			throw "Wrong input: " + act + ". Expected 0, 1, 2, 3 or 4!";
+		}
+	}
 
 }
 
@@ -172,23 +267,24 @@ void auto_comparison() { // Performs calculatings as task requires (compare perf
 	delete[] float_average;
 }
 
-bool what_is_my_task() { //Asks user what program should do
+int what_is_my_task() { //Asks user what program should do
 
-	std::cout << "Ways to work:" << std::endl <<
-		"0. (As task requires). Compare performance based on data type and sample size." << std::endl <<
-		"1. (For testing) Look at performance and results of the function on one example." << std::endl <<
-		"Choose your way (print 0 or 1): ";
+	std::cout << "Ways to work:" << std::endl 
+		<< "0. Exit." << std::endl
+		<< "1. (As task requires). Compare performance based on data type and sample size." << std::endl
+		<< "2. (For testing) Look at performance and results of the function on one example." << std::endl
+		<< "Choose your way (print 0, 1 or 2): ";
 
-	// Here user chooses what he want to see
+	// Here user chooses what he wants to see
 	std::string work_way;
 	std::cin >> work_way;
 
 	// Check if the input is correct
-	if (check_data_symbols(work_way, "01") && work_way.length() == 1) {
-		return work_way == "1";
+	if (check_data_symbols(work_way, "012") && work_way.length() == 1) {
+		return std::stoi(work_way);
 	}
 	else {
-		throw "Wrong input: " + work_way + ". Expected 0 or 1!";
+		throw "Wrong input: " + work_way + ". Expected 0, 1 or 2!";
 	}
 
 }
@@ -196,13 +292,13 @@ bool what_is_my_task() { //Asks user what program should do
 
 int main() {
 	try {
-		// true - one example; false - auto comparison
-		if (what_is_my_task()) {
+		// 2 - one example; 1 - auto comparison; 0 - exit
+		if (what_is_my_task() == 2) {
 			// Manual work with one example. Use for manual testing. 
 			// You will be able to choose initial parameters, get elements from generated data and calculated SMA.
 			working_process_with_user();
 		}
-		else {
+		else if (what_is_my_task() == 1) {
 			// Auto comparison. Program perform exactly what task requires
 			auto_comparison();
 		}
